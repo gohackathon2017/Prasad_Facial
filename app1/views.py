@@ -188,28 +188,23 @@ def capture_and_recognize(request):
                                             attendance = None
 
                                         if attendance:
-                                            # If attendance exists, manage check-in and check-out
-                                            if attendance.check_in_time and not attendance.check_out_time:
-                                                # Mark check-out only if check-in has occurred
-                                                if timezone.now() >= attendance.check_in_time + timedelta(seconds=60):
-                                                    attendance.mark_checked_out()
-                                                    success_sound.play()
-                                                    cv2.putText(frame, f"{name} checked out.", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
-                                                else:
-                                                    cv2.putText(frame, f"{name} checked in.", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
-                                            elif not attendance.check_in_time:
-                                                # Mark check-in if not checked in already
-                                                attendance.student_name = student.name
-                                                attendance.Subject = subject_name if subject_name else 'Unknown'
-                                                attendance.mark_checked_in()
-                                                success_sound.play()
-                                                cv2.putText(frame, f"{name} checked in.", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
+                                            # Display student name and mark as "Present" every time they appear
+                                            attendance.student_name = student.name
+                                            attendance.Subject = subject_name if subject_name else 'Unknown'
+                                            attendance.mark_checked_in()  # Consider updating this to reflect repeated presence instead of a one-time check-in
+                                            success_sound.play()
+                                            cv2.putText(frame, f"{name} - Present", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
                                         else:
-                                            # If no attendance record exists, create a new one
-                                            attendance = Attendance(roll_number=student, student_name=student.name, Subject=subject_name if subject_name else 'Unknown', date=today)
+                                            # If no attendance record exists, create a new one and mark as "Present"
+                                            attendance = Attendance(
+                                                roll_number=student,
+                                                student_name=student.name,
+                                                Subject=subject_name if subject_name else 'Unknown',
+                                                date=today
+                                            )
                                             attendance.mark_checked_in()
                                             success_sound.play()
-                                            cv2.putText(frame, f"{name} checked in.", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
+                                            cv2.putText(frame, f"{name} - Present", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
                                         
                                         # Save the attendance object
                                         attendance.save()
