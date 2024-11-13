@@ -27,11 +27,13 @@ from .models import CameraConfiguration
 from datetime import datetime
 import requests
 from django.core.files.storage import default_storage
+from .services import get_mtcnn, get_resnet
 
 
 # Initialize MTCNN and InceptionResnetV1
 mtcnn = MTCNN(keep_all=True)
 resnet = InceptionResnetV1(pretrained='vggface2').eval()
+
 
 # Function to detect and encode faces
 import dropbox
@@ -46,7 +48,7 @@ from io import BytesIO
 
 # Initialize Dropbox client
 def get_dropbox_client():
-    ACCESS_TOKEN = 'sl.CAm74PGauRoFIpc5FoLc8rjmtvqaG5QlYooQ4DyCVNzxxsJf1rC3ZzNDdrl2CGak5AdTLMp-qVfuyr_XOfyN2EqJtBfU1UAcao8MwQd5weTqYHRr5COMSSuoZfuWMOBzZwnvUHnf2SF81swJ2qrEmZE'
+    ACCESS_TOKEN = 'sl.CAr60NQ0zDHfQIDl3TEcQQ6SyCZbJ09Gcn35Ir1qP-Zl7FuATohWoLZwp6j2m8IlGHJkXBd1Ty-v2ikRRZuxsHwuRK07l2UzJRpJnHamyXnvpsXKeMytuNl9v0e9Jrz0jzqmgskY6J9_GtqR0IgXbgw'
     dbx = dropbox.Dropbox(ACCESS_TOKEN)
     return dbx
 
@@ -70,6 +72,9 @@ def download_image_from_dropbox(dropbox_path):
 
 # Function to detect and encode face from image
 def detect_and_encode(image):
+
+    mtcnn = get_mtcnn()  # Load preloaded MTCNN model
+    resnet = get_resnet()  # Load preloaded InceptionResnetV1 model
     with torch.no_grad():
         boxes, _ = mtcnn.detect(image)
         if boxes is not None:
@@ -215,7 +220,7 @@ from .models import Student, Attendance
 
 
 # Initialize Dropbox API client
-dbx = dropbox.Dropbox('sl.CAm74PGauRoFIpc5FoLc8rjmtvqaG5QlYooQ4DyCVNzxxsJf1rC3ZzNDdrl2CGak5AdTLMp-qVfuyr_XOfyN2EqJtBfU1UAcao8MwQd5weTqYHRr5COMSSuoZfuWMOBzZwnvUHnf2SF81swJ2qrEmZE')  # Replace with your Dropbox access token
+dbx = dropbox.Dropbox('sl.CAr60NQ0zDHfQIDl3TEcQQ6SyCZbJ09Gcn35Ir1qP-Zl7FuATohWoLZwp6j2m8IlGHJkXBd1Ty-v2ikRRZuxsHwuRK07l2UzJRpJnHamyXnvpsXKeMytuNl9v0e9Jrz0jzqmgskY6J9_GtqR0IgXbgw')  # Replace with your Dropbox access token
 
 # Function to download an image from Dropbox
 def download_image_from_dropbox(dropbox_path):
