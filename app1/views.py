@@ -26,12 +26,49 @@ from .models import Student
 from .models import CameraConfiguration
 from datetime import datetime
 import requests
+from django.core.files.storage import default_storage
+
 
 # Initialize MTCNN and InceptionResnetV1
 mtcnn = MTCNN(keep_all=True)
 resnet = InceptionResnetV1(pretrained='vggface2').eval()
 
 # Function to detect and encode faces
+import dropbox
+import cv2
+import numpy as np
+import torch
+from django.conf import settings
+from django.core.exceptions import ValidationError
+from PIL import Image
+from io import BytesIO
+
+
+# Initialize Dropbox client
+def get_dropbox_client():
+    ACCESS_TOKEN = 'sl.CAm74PGauRoFIpc5FoLc8rjmtvqaG5QlYooQ4DyCVNzxxsJf1rC3ZzNDdrl2CGak5AdTLMp-qVfuyr_XOfyN2EqJtBfU1UAcao8MwQd5weTqYHRr5COMSSuoZfuWMOBzZwnvUHnf2SF81swJ2qrEmZE'
+    dbx = dropbox.Dropbox(ACCESS_TOKEN)
+    return dbx
+
+
+# Function to download the image from Dropbox
+def download_image_from_dropbox(dropbox_path):
+    dbx = get_dropbox_client()
+    
+    try:
+        # Download file from Dropbox
+        _, res = dbx.files_download(path=dropbox_path)
+        image_data = res.content
+
+        # Convert binary image data to numpy array and then to OpenCV format
+        image = np.array(bytearray(image_data), dtype=np.uint8)
+        image = cv2.imdecode(image, cv2.IMREAD_COLOR)
+        return image
+    except dropbox.exceptions.ApiError as e:
+        raise ValidationError(f"Error downloading image from Dropbox: {str(e)}")
+
+
+# Function to detect and encode face from image
 def detect_and_encode(image):
     with torch.no_grad():
         boxes, _ = mtcnn.detect(image)
@@ -59,15 +96,22 @@ def encode_uploaded_images():
     uploaded_images = Student.objects.filter(authorized=True)
 
     for student in uploaded_images:
-        image_path = os.path.join(settings.MEDIA_ROOT, str(student.image))
-        known_image = cv2.imread(image_path)
-        known_image_rgb = cv2.cvtColor(known_image, cv2.COLOR_BGR2RGB)
-        encodings = detect_and_encode(known_image_rgb)
-        if encodings:
-            known_face_encodings.extend(encodings)
-            known_face_names.append(student.name)
+        dropbox_path = f"{student.image.name}"  # Dropbox path (assuming image path is stored as relative path)
+
+        try:
+            known_image = download_image_from_dropbox(dropbox_path)
+            print(dropbox_path)  # Download the image from Dropbox
+            known_image_rgb = cv2.cvtColor(known_image, cv2.COLOR_BGR2RGB)
+            encodings = detect_and_encode(known_image_rgb)
+            if encodings:
+                known_face_encodings.extend(encodings)
+                known_face_names.append(student.name)
+        except ValidationError as e:
+            print(f"Error processing image for student {student.name}: {e}")
+            continue
 
     return known_face_encodings, known_face_names
+
 
 # Function to recognize faces
 def recognize_faces(known_encodings, known_names, test_encodings, threshold=0.6):
@@ -81,7 +125,19 @@ def recognize_faces(known_encodings, known_names, test_encodings, threshold=0.6)
             recognized_names.append('Not Recognized')
     return recognized_names
 
+
 # View for capturing student information and image
+import base64
+from django.core.files.base import ContentFile
+from django.shortcuts import render, redirect
+from django.core.exceptions import ValidationError
+from django.http import JsonResponse
+import dropbox
+from .models import Student  # Adjust if the model import path differs
+
+# Dropbox API initialization
+
+
 def capture_student(request):
     if request.method == 'POST':
         name = request.POST.get('name')
@@ -93,27 +149,51 @@ def capture_student(request):
         phase = request.POST.get('phase')
         image_data = request.POST.get('image_data')
 
-        # Decode the base64 image data
+        # Decode the base64 image data if provided
         if image_data:
-            header, encoded = image_data.split(',', 1)
-            image_file = ContentFile(base64.b64decode(encoded), name=f"{name}.jpg")
+            try:
+                # Split the data to separate the header from the encoded part
+                header, encoded = image_data.split(',', 1)
+                image_file = ContentFile(base64.b64decode(encoded), name=f"{name}.jpg")
 
-            student = Student(
-                name=name,
-                fname=fname,
-                rollno=rollno,
-                email=email,
-                phone_number=phone_number,
-                batch=batch,
-                phase=phase,
-                image=image_file,
-                authorized=False  # Default to False during registration
-            )
-            student.save()
+                # Define the path in Dropbox
+                media_path = f"/media/{image_file.name}"
+                print(f"Saving file to Dropbox with path: {media_path}")
 
-            return redirect('selfie_success')  # Redirect to a success page
+                # Initialize Dropbox client
+                dbx = get_dropbox_client()
+
+                # Upload the file to Dropbox
+                dbx.files_upload(image_file.read(), media_path)
+                
+                # Store only the Dropbox path in the database
+                file_name = media_path  # Dropbox path
+
+                # Create the Student object and save to the database
+                student = Student(
+                    name=name,
+                    fname=fname,
+                    rollno=rollno,
+                    email=email,
+                    phone_number=phone_number,
+                    batch=batch,
+                    phase=phase,
+                    image=file_name,  # Store the Dropbox path in the image field
+                    authorized=False
+                )
+                student.save()
+
+                print("File saved at Dropbox path:", file_name)
+
+                return redirect('selfie_success')
+
+            except Exception as e:
+                raise ValidationError("Error in image processing: " + str(e))
 
     return render(request, 'capture_student.html')
+
+
+
 
 
 # Success view after capturing student information and image
@@ -122,6 +202,33 @@ def selfie_success(request):
 
 
 # This views for capturing studen faces and recognize
+import dropbox
+from io import BytesIO
+import cv2
+import numpy as np
+import threading
+import time
+import pygame
+from django.utils import timezone
+from django.shortcuts import render, redirect
+from .models import Student, Attendance
+
+
+# Initialize Dropbox API client
+dbx = dropbox.Dropbox('sl.CAm74PGauRoFIpc5FoLc8rjmtvqaG5QlYooQ4DyCVNzxxsJf1rC3ZzNDdrl2CGak5AdTLMp-qVfuyr_XOfyN2EqJtBfU1UAcao8MwQd5weTqYHRr5COMSSuoZfuWMOBzZwnvUHnf2SF81swJ2qrEmZE')  # Replace with your Dropbox access token
+
+# Function to download an image from Dropbox
+def download_image_from_dropbox(dropbox_path):
+    try:
+        metadata, res = dbx.files_download(path=dropbox_path)
+        image_data = res.content
+        image = np.frombuffer(image_data, np.uint8)
+        image = cv2.imdecode(image, cv2.IMREAD_COLOR)
+        return image
+    except dropbox.exceptions.ApiError as e:
+        print(f"Error downloading file from Dropbox: {e}")
+        return None
+
 def capture_and_recognize(request):
     stop_events = []  # List to store stop events for each thread
     camera_threads = []  # List to store threads for each camera
@@ -269,6 +376,7 @@ def capture_and_recognize(request):
         return render(request, 'error.html', {'error_message': full_error_message})  # Render the error page with message
 
     return redirect('student_attendance_list')
+
 
 
 def student_attendance_list(request):

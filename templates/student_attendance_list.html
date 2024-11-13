@@ -127,7 +127,6 @@
                     <th>Student Name</th>
                     <th>Subject</th>
                     <th>Attendance Date</th>
-                    <th>Time_Slot</th>
                     <th>Lecture_type</th>
                     
                 </tr>
@@ -137,17 +136,15 @@
                     {% for attendance in data.attendance_records %}
                     <tr>
                         <td>
-                            {% if data.student.image %}
-                                <img src="{{ data.student.image.url }}" alt="{{ data.student.name }}" style="width: 50px; height: 50px;">
+                            {% if data.student.dropbox_image_url %}
+                                <img src="{{ data.student.dropbox_image_url }}" alt="{{ data.student.name }}" style="width: 50px; height: 50px;">
                             {% else %}
                                 <span>No Image</span>
                             {% endif %}
                         </td>
                         <td>{{ data.student.name }}</td>
                         <td>{{ data.student.subject }}</td>
-
                         <td>{{ attendance.date }}</td>
-                        <td>{{ attendance.timeslot }}</td>
                         <td>{{ attendance.lecture }}</td>
 
                     </tr>

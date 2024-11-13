@@ -14,6 +14,9 @@ from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+print(BASE_DIR)
+
+# MEDIA_ROOT = BASE_DIR / 'media'
 
 
 # Quick-start development settings - unsuitable for production
@@ -37,8 +40,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'storages',   # Add django-storages to installed apps
     'app1',
-    
 ]
 
 MIDDLEWARE = [
@@ -56,7 +59,7 @@ ROOT_URLCONF = 'Project101.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR,'templates'],
+        'DIRS': [BASE_DIR, 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -124,11 +127,21 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# settings.py
+# Media settings - Dropbox storage
 
+# Specify the custom storage backend for media files
+DEFAULT_FILE_STORAGE = 'storages.backends.dropbox.DropBoxStorage'
+
+# Dropbox-specific settings
+#DROPBOX_OAUTH2_TOKEN = 'sl.CAkMg7bG63ATVI16CP2T9X4SVFXrg0yRnGkMLrpFTCQQV2OQ_vIpmuxuPr58EnTfXW5Ur6G9DdovGiz04vkWKW3edBzCM2nSycBK8LtxcUlyaM9Fuu7E3QFqAIWQhOQvBJKA7eyUNrFO'
+DROPBOX_APP_KEY = 'uv460yn2sxhohbi'
+DROPBOX_APP_SECRET = '840r1hrom2jwgx4'
+DROPBOX_OAUTH2_REFRESH_TOKEN = 'sl.CAkMg7bG63ATVI16CP2T9X4SVFXrg0yRnGkMLrpFTCQQV2OQ_vIpmuxuPr58EnTfXW5Ur6G9DdovGiz04vkWKW3edBzCM2nSycBK8LtxcUlyaM9Fuu7E3QFqAIWQhOQvBJKA7eyUNrFO'
+
+DROPBOX_ROOT_PATH = '/media/'  # Dropbox folder for storing media files
+
+# Media URL for serving files
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media/')
 
-
-
+# Login URL
 LOGIN_URL = 'login'  # Example: 'login' if your login URL is '/login/'
