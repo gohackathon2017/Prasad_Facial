@@ -1,1 +1,2 @@
-web: gunicorn Project101.wsgi:application --bind 0.0.0.0:$PORT
+web: gunicorn Project101.wsgi:application --bind 0.0.0.0:$PORT --timeout 120
+
