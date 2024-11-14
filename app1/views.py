@@ -71,12 +71,14 @@ def download_image_from_dropbox(dropbox_path):
 
 
 # Function to detect and encode face from image
-def detect_and_encode(image):
+# Load models once as global variables
+mtcnn = get_mtcnn()  # Load preloaded MTCNN model only once
+resnet = get_resnet()  # Load preloaded InceptionResnetV1 model only once
 
-    mtcnn = get_mtcnn()  # Load preloaded MTCNN model
-    resnet = get_resnet()  # Load preloaded InceptionResnetV1 model
+# Function to detect and encode faces
+def detect_and_encode(image):
     with torch.no_grad():
-        boxes, _ = mtcnn.detect(image)
+        boxes, _ = mtcnn.detect(image)  # Use the already loaded mtcnn model
         if boxes is not None:
             faces = []
             for box in boxes:
@@ -86,7 +88,7 @@ def detect_and_encode(image):
                 face = cv2.resize(face, (160, 160))
                 face = np.transpose(face, (2, 0, 1)).astype(np.float32) / 255.0
                 face_tensor = torch.tensor(face).unsqueeze(0)
-                encoding = resnet(face_tensor).detach().numpy().flatten()
+                encoding = resnet(face_tensor).detach().numpy().flatten()  # Use the already loaded resnet model
                 faces.append(encoding)
             return faces
     return []
